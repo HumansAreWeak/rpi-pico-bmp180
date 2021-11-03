@@ -1,10 +1,11 @@
 /**
  * Bosch BMP180 pressure and temperature sensor stand-alone library for pico sdk.
+ * It simplyfies the use of the sensor and hides the tiresome calculations.  
  * 
  * This library was inspried by the BMP180 Breakout Arduino library by SparkFun.
  * GitHub: https://github.com/sparkfun/BMP180_Breakout_Arduino_Library
  * 
- * It simplyfies the use of the sensor and hides the tiresome calculations.  
+ * Datasheet used for reference: https://cdn-shop.adafruit.com/datasheets/BST-BMP180-DS000-09.pdf
  * 
  * Version 1.0 2021/11/03 - Initial Release
  * 

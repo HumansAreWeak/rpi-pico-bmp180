@@ -1,4 +1,4 @@
-# RPi Pico BPM180 C++ library
+# RPi Pico BPM180 C library
 
 This project contains a stand-alone library for the Raspberry Pi Pico SDK, written in C. The library is made for the BMP180 sensor from Bosch. You have to download and setup the library to have it work properly.
 
