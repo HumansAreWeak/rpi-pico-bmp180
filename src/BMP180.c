@@ -10,20 +10,20 @@
 #define PRESSURE2 0xB4
 #define PRESSURE3 0xF4
 
-static inline uint8_t readBytes(BMP180 *self, uint8_t *values, const int8_t length)
+static inline uint8_t readBytes(struct bmp180 *self, uint8_t *values, const int8_t length)
 {
-    self->ack = i2c_write_blocking(self->instance, self->address, &values[0], 1, true);
+    self->config.ack = i2c_write_blocking(self->i2c.instance, self->i2c.address, &values[0], 1, true);
 
-    if (self->ack != PICO_ERROR_GENERIC)
+    if (self->config.ack != PICO_ERROR_GENERIC)
     {
-        i2c_read_blocking(self->instance, self->address, values, length, false);
+        i2c_read_blocking(self->i2c.instance, self->i2c.address, values, length, false);
         return 1;
     }
 
     return 0;
 }
 
-static inline uint8_t readInt(BMP180 *self, const uint8_t address, int16_t *value)
+static inline uint8_t readInt(struct bmp180 *self, const uint8_t address, int16_t *value)
 {
     uint8_t data[2];
     data[0] = address;
@@ -38,7 +38,7 @@ static inline uint8_t readInt(BMP180 *self, const uint8_t address, int16_t *valu
     return 0;
 }
 
-static inline uint8_t readUInt(BMP180 *self, const uint8_t address, int16_t *value)
+static inline uint8_t readUInt(struct bmp180 *self, const uint8_t address, int16_t *value)
 {
     uint8_t data[2];
     data[0] = address;
@@ -53,11 +53,11 @@ static inline uint8_t readUInt(BMP180 *self, const uint8_t address, int16_t *val
     return false;
 }
 
-static inline uint8_t writeBytes(BMP180 *self, const uint8_t *values, const int8_t length)
+static inline uint8_t writeBytes(struct bmp180 *self, const uint8_t *values, const int8_t length)
 {
-    self->ack = i2c_write_blocking(self->instance, self->address, values, length, false);
+    self->config.ack = i2c_write_blocking(self->i2c.instance, self->i2c.address, values, length, false);
 
-    if (self->ack != PICO_ERROR_GENERIC)
+    if (self->config.ack != PICO_ERROR_GENERIC)
     {
         return 1;
     }
@@ -65,7 +65,7 @@ static inline uint8_t writeBytes(BMP180 *self, const uint8_t *values, const int8
     return 0;
 }
 
-static inline uint8_t startTemperature(BMP180 *self)
+static inline uint8_t startTemperature(struct bmp180 *self)
 {
     uint8_t data[2];
 
@@ -81,13 +81,13 @@ static inline uint8_t startTemperature(BMP180 *self)
     return false;
 }
 
-static inline uint8_t startPressure(BMP180 *self)
+static inline uint8_t startPressure(struct bmp180 *self)
 {
     uint8_t data[2], delay;
 
     data[0] = REG_CONTROL;
 
-    switch (self->oversampling)
+    switch (self->config.oversampling)
     {
     case 0:
         data[1] = PRESSURE0;
@@ -120,37 +120,47 @@ static inline uint8_t startPressure(BMP180 *self)
     return 0;
 }
 
-BMP180 bmp180_init(i2c_inst_t *i2c_instance)
+struct bmp180 bmp180_init(i2c_inst_t *i2c_instance)
 {
-    BMP180 bmp;
-    bmp.instance = i2c_instance;
-    bmp.address = 0x77;
+    struct bmp180 bmp;
+    bmp.i2c.instance = i2c_instance;
+    bmp.i2c.address = BMP180_ADDRESS;
 
     return bmp;
 }
 
-uint8_t bmp180_begin(BMP180 *self)
+uint8_t bmp180_begin(struct bmp180 *self)
 {
     double c3, c4, b1;
 
-    if (readInt(self, 0xAA, &self->AC1) && readInt(self, 0xAC, &self->AC2) && readInt(self, 0xAE, &self->AC3) && readUInt(self, 0xB0, &self->AC4) && readUInt(self, 0xB2, &self->AC5) && readUInt(self, 0xB4, &self->AC6) && readInt(self, 0xB6, &self->VB1) && readInt(self, 0xB8, &self->VB2) && readInt(self, 0xBA, &self->MB) && readInt(self, 0xBC, &self->MC) && readInt(self, 0xBE, &self->MD))
+    if (readInt(self, 0xAA, &self->calibration_data.AC1) &&
+        readInt(self, 0xAC, &self->calibration_data.AC2) &&
+        readInt(self, 0xAE, &self->calibration_data.AC3) &&
+        readUInt(self, 0xB0, &self->calibration_data.AC4) &&
+        readUInt(self, 0xB2, &self->calibration_data.AC5) &&
+        readUInt(self, 0xB4, &self->calibration_data.AC6) &&
+        readInt(self, 0xB6, &self->calibration_data.VB1) &&
+        readInt(self, 0xB8, &self->calibration_data.VB2) &&
+        readInt(self, 0xBA, &self->calibration_data.MB) &&
+        readInt(self, 0xBC, &self->calibration_data.MC) &&
+        readInt(self, 0xBE, &self->calibration_data.MD))
     {
-        c3 = 160.0 * pow(2, -15) * self->AC3;
-        c4 = pow(10, -3) * pow(2, -15) * self->AC4;
-        b1 = pow(160, 2) * pow(2, -30) * self->VB1;
-        self->c5 = (pow(2, -15) / 160) * self->AC5;
-        self->c6 = self->AC6;
-        self->mc = (pow(2, 11) / pow(160, 2)) * self->MC;
-        self->md = self->MD / 160.0;
-        self->x0 = self->AC1;
-        self->x1 = 160.0 * pow(2, -13) * self->AC2;
-        self->x2 = pow(160, 2) * pow(2, -25) * self->VB2;
-        self->y0 = c4 * pow(2, 15);
-        self->y1 = c4 * c3;
-        self->y2 = c4 * b1;
-        self->p0 = (3791.0 - 8.0) / 1600.0;
-        self->p1 = 1.0 - 7357.0 * pow(2, -20);
-        self->p2 = 3038.0 * 100.0 * pow(2, -36);
+        c3 = 160.0 * pow(2, -15) * self->calibration_data.AC3;
+        c4 = pow(10, -3) * pow(2, -15) * self->calibration_data.AC4;
+        b1 = pow(160, 2) * pow(2, -30) * self->calibration_data.VB1;
+        self->calibration_data.c5 = (pow(2, -15) / 160) * self->calibration_data.AC5;
+        self->calibration_data.c6 = self->calibration_data.AC6;
+        self->calibration_data.mc = (pow(2, 11) / pow(160, 2)) * self->calibration_data.MC;
+        self->calibration_data.md = self->calibration_data.MD / 160.0;
+        self->calibration_data.x0 = self->calibration_data.AC1;
+        self->calibration_data.x1 = 160.0 * pow(2, -13) * self->calibration_data.AC2;
+        self->calibration_data.x2 = pow(160, 2) * pow(2, -25) * self->calibration_data.VB2;
+        self->calibration_data.y0 = c4 * pow(2, 15);
+        self->calibration_data.y1 = c4 * c3;
+        self->calibration_data.y2 = c4 * b1;
+        self->calibration_data.p0 = (3791.0 - 8.0) / 1600.0;
+        self->calibration_data.p1 = 1.0 - 7357.0 * pow(2, -20);
+        self->calibration_data.p2 = 3038.0 * 100.0 * pow(2, -36);
 
         return 1;
     }
@@ -158,7 +168,7 @@ uint8_t bmp180_begin(BMP180 *self)
     return 0;
 }
 
-uint8_t bmp180_event(BMP180 *self)
+uint8_t bmp180_event(struct bmp180 *self)
 {
     uint8_t data_received = 1;
     self->temperature = 0.0;
@@ -167,7 +177,7 @@ uint8_t bmp180_event(BMP180 *self)
     self->seaLevel = 0.0;
     self->altitude = 0.0;
 
-    if (self->measTemperature)
+    if (self->config.measTemperature)
     {
         startTemperature(self);
         uint8_t data[2];
@@ -187,7 +197,7 @@ uint8_t bmp180_event(BMP180 *self)
         }
     }
 
-    if (self->measPressure)
+    if (self->config.measPressure)
     {
         startPressure(self);
         uint8_t data[3];
@@ -210,7 +220,7 @@ uint8_t bmp180_event(BMP180 *self)
     return data_received;
 }
 
-double bmp180_get_temperature_c(BMP180 *self)
+double bmp180_get_temperature_c(struct bmp180 *self)
 {
     if (self->temperature != 0)
     {
@@ -218,15 +228,15 @@ double bmp180_get_temperature_c(BMP180 *self)
     }
     else if (self->temperature == 0 && self->rawTemperature != 0)
     {
-        double a = self->c5 * (self->rawTemperature - self->c6);
-        self->temperature = a + (self->mc / (a + self->md));
+        double a = self->calibration_data.c5 * (self->rawTemperature - self->calibration_data.c6);
+        self->temperature = a + (self->calibration_data.mc / (a + self->calibration_data.md));
         return self->temperature;
     }
 
     return 0.0;
 }
 
-double bmp180_get_temperature_f(BMP180 *self)
+double bmp180_get_temperature_f(struct bmp180 *self)
 {
     if (self->temperatureF != 0.0)
     {
@@ -241,9 +251,9 @@ double bmp180_get_temperature_f(BMP180 *self)
     return 0.0;
 }
 
-double bmp180_get_pressure(BMP180 *self)
+double bmp180_get_pressure(struct bmp180 *self)
 {
-    if (self->measTemperature == 0)
+    if (self->config.measTemperature == 0)
     {
         bmp180_set_temperature_measuring(self, 1);
         bmp180_event(self);
@@ -257,17 +267,17 @@ double bmp180_get_pressure(BMP180 *self)
     {
         double s, x, y, z;
         s = bmp180_get_temperature_c(self) - 25.0;
-        x = (self->x2 * pow(s, 2)) + (self->x1 * s) + self->x0;
-        y = (self->y2 * pow(s, 2)) + (self->y1 * s) + self->y0;
+        x = (self->calibration_data.x2 * pow(s, 2)) + (self->calibration_data.x1 * s) + self->calibration_data.x0;
+        y = (self->calibration_data.y2 * pow(s, 2)) + (self->calibration_data.y1 * s) + self->calibration_data.y0;
         z = (self->rawPressure - x) / y;
-        self->pressure = (self->p2 * pow(z, 2)) + (self->p1 * z) + self->p0;
+        self->pressure = (self->calibration_data.p2 * pow(z, 2)) + (self->calibration_data.p1 * z) + self->calibration_data.p0;
         return self->pressure;
     }
 
     return 0.0;
 }
 
-double bmp180_get_sea_level(BMP180 *self, double current_altitude)
+double bmp180_get_sea_level(struct bmp180 *self, double current_altitude)
 {
     if (self->seaLevel != 0)
     {
@@ -278,7 +288,7 @@ double bmp180_get_sea_level(BMP180 *self, double current_altitude)
     return self->seaLevel;
 }
 
-double bmp180_get_altitude(BMP180 *self, double fixed_pressure)
+double bmp180_get_altitude(struct bmp180 *self, double fixed_pressure)
 {
     if (self->altitude != 0)
     {
@@ -289,22 +299,22 @@ double bmp180_get_altitude(BMP180 *self, double fixed_pressure)
     return self->altitude;
 }
 
-void bmp180_set_temperature_measuring(BMP180 *self, uint8_t state)
+void bmp180_set_temperature_measuring(struct bmp180 *self, uint8_t state)
 {
-    self->measTemperature = state;
+    self->config.measTemperature = state;
 }
 
-void bmp180_set_pressure_measuring(BMP180 *self, uint8_t state)
+void bmp180_set_pressure_measuring(struct bmp180 *self, uint8_t state)
 {
-    self->measPressure = state;
+    self->config.measPressure = state;
 }
 
-void bmp180_set_pressure_sampling(BMP180 *self, uint8_t oversampling)
+void bmp180_set_pressure_sampling(struct bmp180 *self, uint8_t oversampling)
 {
-    self->oversampling = oversampling;
+    self->config.oversampling = oversampling;
 }
 
-int bmp180_get_error(BMP180 *self)
+int bmp180_get_error(struct bmp180 *self)
 {
-    return self->ack;
+    return self->config.ack;
 }

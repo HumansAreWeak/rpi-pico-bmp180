@@ -32,6 +32,13 @@ For this library CMake is used for linking. If you don't know how to implement t
         # Adds a CMakeLists.txt file from a subdirectory
         add_subdirectory(rpi-pico-bmp180-main)
 
+6.  Include this project into your project by adding a new target link library. Open your top level **CMakeLists.txt** file and add:
+
+        target_link_libraries(${PROJECT_NAME}
+            /* ... other libs */
+            haw_bmp180
+        )
+
     After these steps you can go ahead and recompile CMake. Everything should be linking automatically.
 
 # How to use
@@ -47,6 +54,7 @@ Every help is appreciated, feel free to fork my project and make pull requests.
 # Version history
 
 v1.0 - Initial release
+v1.1 - Minor changes, changed naming conventions, created new structs for more structure
 
 # License
 

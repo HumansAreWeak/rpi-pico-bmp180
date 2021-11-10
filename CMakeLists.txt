@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.12)
 
 # Constant EXAMPLE_BUILD for building examples
-OPTION(EXAMPLE_BUILD "Build all examples" ON)
+OPTION(EXAMPLE_BUILD "Build all examples" OFF)
 
 # Check if the environment variable 'PICO_SDK_PATH' exists
 if(NOT EXISTS $ENV{PICO_SDK_PATH})

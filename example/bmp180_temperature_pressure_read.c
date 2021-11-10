@@ -17,7 +17,7 @@ int main(void)
     gpio_pull_up(PICO_DEFAULT_I2C_SCL_PIN);
 
     // Pass in the I²C driver (important for dual-core code)
-    BMP180 bmp = bmp180_init(i2c_default);
+    bmp180_t bmp = bmp180_init(i2c_default);
 
     // Check if BMP can initialize
     if (bmp180_begin(&bmp))
